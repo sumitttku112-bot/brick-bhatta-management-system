@@ -21,7 +21,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 firebase_key_path = os.path.join(BASE_DIR, "firebase-key.json")
 
 if not firebase_admin._apps:
-    # Try environment variable first (best for Railway/Production)
+    # Try environment variable first (best for Production)
     firebase_json = os.getenv("FIREBASE_KEY_JSON")
     
     if firebase_json:

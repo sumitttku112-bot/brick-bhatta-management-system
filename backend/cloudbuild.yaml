@@ -1,0 +1,41 @@
+steps:
+  # Build the backend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'asia-south1-docker.pkg.dev/$PROJECT_ID/brick-bhatta-repo/backend:$SHORT_SHA'
+      - '-t'
+      - 'asia-south1-docker.pkg.dev/$PROJECT_ID/brick-bhatta-repo/backend:latest'
+      - '-f'
+      - 'backend/Dockerfile'
+      - 'backend'
+
+  # Push both tags to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'asia-south1-docker.pkg.dev/$PROJECT_ID/brick-bhatta-repo/backend:$SHORT_SHA'
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'asia-south1-docker.pkg.dev/$PROJECT_ID/brick-bhatta-repo/backend:latest'
+
+  # Deploy the SHA-tagged image to the existing Cloud Run service
+  - name: 'gcr.io/google.com/cloudsdk/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'brick-bhatta-backend'
+      - '--image=asia-south1-docker.pkg.dev/$PROJECT_ID/brick-bhatta-repo/backend:$SHORT_SHA'
+      - '--region=asia-south1'
+      - '--platform=managed'
+      - '--quiet'
+
+images:
+  - 'asia-south1-docker.pkg.dev/$PROJECT_ID/brick-bhatta-repo/backend:$SHORT_SHA'
+  - 'asia-south1-docker.pkg.dev/$PROJECT_ID/brick-bhatta-repo/backend:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

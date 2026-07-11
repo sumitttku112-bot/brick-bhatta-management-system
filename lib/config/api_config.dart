@@ -6,7 +6,7 @@ class ApiConfig {
   // Local Development (Android Emulator uses 10.0.2.2 to access host localhost)
   // Using local IP for better connectivity: 192.168.1.196:8000
   // For Android Emulator, you can also try: http://10.0.2.2:8000
-  static const String baseUrl = "https://brickbhatta-production.up.railway.app";
+  static const String baseUrl = "https://brick-bhatta-backend-990583836298.asia-south1.run.app";
   static const String apiKey = "brick_bhatta_123"; 
   static const String tenantId = "kiln-001"; 
   
