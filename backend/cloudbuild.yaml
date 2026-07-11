@@ -22,7 +22,7 @@ steps:
       - 'asia-south1-docker.pkg.dev/$PROJECT_ID/brick-bhatta-repo/backend:latest'
 
   # Deploy the SHA-tagged image to the existing Cloud Run service
-  - name: 'gcr.io/google.com/cloudsdk/cloud-sdk'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
       - 'run'
