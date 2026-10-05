@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -403,10 +402,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _performLogout() async {
     try {
-      // Sign out from Firebase
-      await FirebaseAuth.instance.signOut();
-      
-      // Clear SharedPreferences
+      // Clear SharedPreferences (includes the auth token)
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
       

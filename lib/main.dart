@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_navigation_screen.dart';
 import 'providers/auth_provider.dart';
@@ -11,11 +9,6 @@ import 'services/sync_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
   
   // Initialize Hive for local storage
   await Hive.initFlutter();
@@ -32,7 +25,7 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authStateProvider);
+    final authState = ref.watch(authNotifierProvider);
 
     return MaterialApp(
       title: 'Brick Bhatta Management System',
@@ -51,8 +44,8 @@ class MyApp extends ConsumerWidget {
         '/main': (context) => const MainNavigationScreen(),
       },
       home: authState.when(
-        data: (user) {
-          if (user != null) {
+        data: (isLoggedIn) {
+          if (isLoggedIn) {
             return const MainNavigationScreen();
           } else {
             return const LoginScreen();

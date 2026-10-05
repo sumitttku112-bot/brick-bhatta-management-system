@@ -98,7 +98,8 @@ class UserBase(BaseModel):
     credit_limit: Optional[float] = None
 
 class UserCreate(UserBase):
-    id: str # Allow setting ID manually (Firebase UID)
+    id: str # Allow setting ID manually
+    password: Optional[str] = Field(default=None, min_length=6)
 
 class User(UserBase):
     id: str
@@ -106,24 +107,19 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
-# --- OTP Schemas ---
-class OTPRequest(BaseModel):
-    phone_number: str = Field(..., description="Phone number in E.164 format (e.g., +919876543210)")
-
-class OTPSendResponse(BaseModel):
-    success: bool
-    message: str
-    expires_in: int = Field(default=300, description="OTP expiry time in seconds")
-
-class OTPVerifyRequest(BaseModel):
+# --- Auth Schemas ---
+class LoginRequest(BaseModel):
     phone_number: str
-    otp_code: str
+    password: str
 
-class OTPVerifyResponse(BaseModel):
-    success: bool
-    message: str
-    user: Optional[User] = None
-    token: Optional[str] = None  # For future JWT token implementation
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: User
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=6)
 
 # --- Sale Schemas ---
 class BrickEntryBase(BaseModel):

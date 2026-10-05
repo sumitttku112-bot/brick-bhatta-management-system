@@ -1,6 +1,5 @@
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../config/api_config.dart';
@@ -111,8 +110,9 @@ class UserSyncBridge {
   }
 
   /// Add a user to both UserData and sync system (OPTIMIZED)
-  /// Add a user to backend and local storage
-  static Future<void> addUser(UserModel user) async {
+  /// Add a user to backend and local storage.
+  /// If [password] is given, the user can log in with it (set by an admin).
+  static Future<void> addUser(UserModel user, {String? password}) async {
     try {
       print('🔄 UserSyncBridge: Adding user ${user.name}');
       
@@ -130,11 +130,18 @@ class UserSyncBridge {
       final response = await http.post(
         Uri.parse(ApiConfig.usersUrl),
         headers: headers,
-        body: jsonEncode(user.toJson()),
+        body: jsonEncode({
+          ...user.toJson(),
+          if (password != null) 'password': password,
+        }),
       );
         
       if (response.statusCode == 200 || response.statusCode == 201) {
         print('✅ UserSyncBridge: Added to Backend');
+      } else if (password != null) {
+        // Creating a login user must not fail silently
+        UserData.removeUser(user.id);
+        throw Exception('Failed to create user (${response.statusCode}): ${response.body}');
       } else {
         print('❌ UserSyncBridge: Failed to push to backend: ${response.statusCode}');
         print('❌ [UserSyncBridge] Response body: ${response.body}');

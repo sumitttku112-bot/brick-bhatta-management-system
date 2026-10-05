@@ -1,20 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
-final authStateProvider = StreamProvider<User?>((ref) {
-  final authService = ref.watch(authServiceProvider);
-  return authService.authStateChanges;
-});
-
-final isAuthenticatedProvider = FutureProvider<bool>((ref) async {
-  final authService = ref.watch(authServiceProvider);
-  return await authService.isAuthenticated();
-});
-
-class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
+/// State is `true` when a user is logged in.
+class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
   final AuthService _authService;
 
   AuthNotifier(this._authService) : super(const AsyncValue.loading()) {
@@ -23,32 +13,28 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
 
   Future<void> _init() async {
     try {
-      final isAuthenticated = await _authService.isAuthenticated();
-      if (isAuthenticated && _authService.currentUser != null) {
-        state = AsyncValue.data(_authService.currentUser);
-      } else {
-        state = const AsyncValue.data(null);
-      }
+      state = AsyncValue.data(await _authService.isAuthenticated());
     } catch (e) {
       state = AsyncValue.error(e, StackTrace.current);
     }
+  }
+
+  Future<void> login(String phoneNumber, String password) async {
+    await _authService.login(phoneNumber, password);
+    state = const AsyncValue.data(true);
   }
 
   Future<void> signOut() async {
     try {
       await _authService.signOut();
-      state = const AsyncValue.data(null);
+      state = const AsyncValue.data(false);
     } catch (e) {
       state = AsyncValue.error(e, StackTrace.current);
     }
   }
-
-  void setUser(User? user) {
-    state = AsyncValue.data(user);
-  }
 }
 
-final authNotifierProvider = StateNotifierProvider<AuthNotifier, AsyncValue<User?>>((ref) {
+final authNotifierProvider = StateNotifierProvider<AuthNotifier, AsyncValue<bool>>((ref) {
   final authService = ref.watch(authServiceProvider);
   return AuthNotifier(authService);
 });

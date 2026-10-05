@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from . import models, schemas
+from . import models, schemas, security
 import uuid
 from typing import List, Optional
 from datetime import datetime, timedelta
@@ -147,7 +147,7 @@ def create_work(db: Session, work: schemas.WorkCreate, user_id: str):
     # Use provided ID or generate DB logic one (though UUID is preferred for sync)
     # Since existing logic uses string IDs from Flutter, use that if provided
     
-    # Check if user exists in database (user_id might be Firebase UID)
+    # Check if user exists in database
     # If user doesn't exist with that ID, set created_by to None (foreign key allows null)
     db_user = get_user(db, user_id)
     created_by_id = db_user.id if db_user else None
@@ -196,7 +196,7 @@ def get_transactions_for_user(db: Session, user_id: str, role: str, skip: int = 
 
 
 def create_transaction(db: Session, transaction: schemas.TransactionCreate, user_id: str):
-    # Check if user exists in database (user_id might be Firebase UID)
+    # Check if user exists in database
     # If user doesn't exist with that ID, set created_by to None (foreign key allows null)
     db_user = get_user(db, user_id)
     created_by_id = db_user.id if db_user else None
@@ -254,9 +254,6 @@ def get_user_by_phone(db: Session, phone_number: str):
     Get user by phone number, tolerant to formatting differences.
     Checks both User table and Name table (for Kaccha/Pakka Muneem).
     """
-    import logging
-    logger = logging.getLogger(__name__)
-
     # Normalize input
     normalized = (
         phone_number
@@ -273,16 +270,12 @@ def get_user_by_phone(db: Session, phone_number: str):
         f"+{normalized.lstrip('+')}",
     }
 
-    logger.error(f"[DEBUG] get_user_by_phone input: '{phone_number}'")
-    logger.error(f"[DEBUG] normalized candidates: {candidates}")
-
     # First check User table
     user = db.query(models.User).filter(
         models.User.phone_number.in_(candidates)
     ).first()
 
     if user:
-        logger.error(f"[DEBUG] Found user in User table: {user.id}")
         return user
 
     # If not found in User table, check Name table for Kaccha/Pakka Muneem
@@ -291,8 +284,7 @@ def get_user_by_phone(db: Session, phone_number: str):
     ).first()
 
     if name:
-        logger.error(f"[DEBUG] Found user in Name table: {name.server_id}, role: {name.group}")
-        # Convert Name to User-like object for compatibility
+            # Convert Name to User-like object for compatibility
         # Create a temporary User object with Name data
         user_obj = models.User(
             id=name.server_id,
@@ -303,15 +295,6 @@ def get_user_by_phone(db: Session, phone_number: str):
         )
         return user_obj
 
-    # Not found in either table
-    all_users = db.query(models.User).all()
-    all_names = db.query(models.Name).all()
-    logger.error(f"[DEBUG] No match. Users in DB: {len(all_users)}, Names in DB: {len(all_names)}")
-    for u in all_users:
-        logger.error(f"  User: id={u.id}, phone='{u.phone_number}'")
-    for n in all_names:
-        logger.error(f"  Name: id={n.server_id}, phone='{n.phone}', group='{n.group}'")
-
     return None
 
 
@@ -320,7 +303,10 @@ def get_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.User).offset(skip).limit(limit).all()
 
 def create_user(db: Session, user: schemas.UserCreate):
-    db_user = models.User(**user.model_dump())
+    data = user.model_dump(exclude={'password'})
+    db_user = models.User(**data)
+    if user.password:
+        db_user.password_hash = security.hash_password(user.password)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -329,111 +315,15 @@ def create_user(db: Session, user: schemas.UserCreate):
 def update_user(db: Session, user_id: str, user: schemas.UserCreate):
     db_user = get_user(db, user_id)
     if db_user:
-        user_data = user.model_dump(exclude_unset=True)
+        user_data = user.model_dump(exclude_unset=True, exclude={'password'})
         for key, value in user_data.items():
             if key != 'id': # Prevent ID change
                  setattr(db_user, key, value)
+        if user.password:
+            db_user.password_hash = security.hash_password(user.password)
         db.commit()
         db.refresh(db_user)
     return db_user
-
-# --- OTP CRUD ---
-def generate_otp() -> str:
-    """Generate a 6-digit OTP"""
-    return f"{secrets.randbelow(900000) + 100000:06d}"
-
-def create_otp(db: Session, phone_number: str, expiry_minutes: int = 5) -> models.OTP:
-    """Create a new OTP for a phone number"""
-    # Normalize phone number
-    normalized_phone = phone_number.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
-    
-    # Invalidate any existing unverified OTPs for this phone
-    existing_otps = db.query(models.OTP).filter(
-        models.OTP.phone_number == normalized_phone,
-        models.OTP.verified == False
-    ).all()
-    for otp in existing_otps:
-        db.delete(otp)
-    
-    # Create new OTP
-    otp_code = generate_otp()
-    expires_at = datetime.utcnow() + timedelta(minutes=expiry_minutes)
-    
-    db_otp = models.OTP(
-        phone_number=normalized_phone,
-        otp_code=otp_code,
-        created_at=datetime.utcnow(),
-        expires_at=expires_at,
-        verified=False,
-        attempts=0
-    )
-    db.add(db_otp)
-    try:
-        db.commit()
-        db.refresh(db_otp)
-    except Exception as e:
-        db.rollback()
-        raise e
-    return db_otp
-
-def get_latest_otp(db: Session, phone_number: str) -> Optional[models.OTP]:
-    """Get the latest unverified OTP for a phone number"""
-    normalized_phone = phone_number.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
-    return db.query(models.OTP).filter(
-        models.OTP.phone_number == normalized_phone,
-        models.OTP.verified == False
-    ).order_by(models.OTP.created_at.desc()).first()
-
-def verify_otp(db: Session, phone_number: str, otp_code: str) -> Optional[models.OTP]:
-    """Verify OTP code"""
-    normalized_phone = phone_number.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
-    
-    otp = get_latest_otp(db, normalized_phone)
-    if not otp:
-        return None
-    
-    # Check if expired
-    if datetime.utcnow() > otp.expires_at:
-        return None
-    
-    # Check if already verified
-    if otp.verified:
-        return None
-    
-    # Check if max attempts exceeded (5 attempts)
-    if otp.attempts >= 5:
-        return None
-    
-    # Increment attempts
-    otp.attempts += 1
-    
-    # Verify OTP
-    if otp.otp_code == otp_code:
-        otp.verified = True
-        db.commit()
-        db.refresh(otp)
-        return otp
-    else:
-        db.commit()
-        return None
-
-def get_recent_otp_count(db: Session, phone_number: str, minutes: int = 10) -> int:
-    """Count OTPs sent to a phone number in the last N minutes (for rate limiting)"""
-    normalized_phone = phone_number.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
-    cutoff_time = datetime.utcnow() - timedelta(minutes=minutes)
-    return db.query(models.OTP).filter(
-        models.OTP.phone_number == normalized_phone,
-        models.OTP.created_at >= cutoff_time
-    ).count()
-
-def cleanup_expired_otps(db: Session):
-    """Clean up expired OTPs (can be called periodically)"""
-    expired_otps = db.query(models.OTP).filter(
-        models.OTP.expires_at < datetime.utcnow()
-    ).all()
-    for otp in expired_otps:
-        db.delete(otp)
-    db.commit()
 
 # --- Sale CRUD ---
 def get_sale(db: Session, sale_id: str):

@@ -2,7 +2,6 @@ import '../models/sale_model.dart';
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/sale_model.dart';
 import '../config/api_config.dart';
 

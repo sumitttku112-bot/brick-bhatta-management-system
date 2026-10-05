@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../models/user_model.dart';
+import '../services/user_sync_bridge.dart';
 
 class AddUserScreen extends StatefulWidget {
   const AddUserScreen({super.key});
@@ -563,7 +565,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
     );
   }
 
-  void _saveUser() {
+  Future<void> _saveUser() async {
     if (_formKey.currentState!.validate()) {
       if (_selectedRole == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -575,7 +577,31 @@ class _AddUserScreenState extends State<AddUserScreen> {
         return;
       }
 
-      // TODO: Implement user saving logic
+      final name = _nameController.text.trim();
+      final phone = _phoneController.text.replaceAll(' ', '');
+      final user = UserModel(
+        id: 'user_${DateTime.now().millisecondsSinceEpoch}',
+        name: name,
+        nameHindi: name,
+        role: _selectedRole!,
+        roleHindi: _selectedRole!,
+        initials: name.isEmpty
+            ? 'NA'
+            : name.split(RegExp(r'\s+')).map((p) => p[0].toUpperCase()).take(2).join(),
+        phoneNumber: phone.startsWith('+') ? phone : '+91$phone',
+      );
+
+      try {
+        await UserSyncBridge.addUser(user, password: _passwordController.text);
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+        );
+        return;
+      }
+
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('User saved successfully!'),

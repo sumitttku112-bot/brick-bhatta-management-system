@@ -18,12 +18,11 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./app:/code/app
-      - ./firebase-key.json:/code/firebase-key.json  # Mount Firebase key file
     ports:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql://user:password@db:5432/brick_bhatta_db
-      FIREBASE_CREDENTIALS_PATH: /code/firebase-key.json
+      JWT_SECRET: change-me-in-production
     depends_on:
       - db
 

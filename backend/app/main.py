@@ -1,11 +1,20 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import names, users, sales, work, transactions, otp
+from sqlalchemy import inspect, text
+from .routers import names, users, sales, work, transactions, auth
 from .database import engine, Base
+from .bootstrap import bootstrap_admin
 
 # Create tables on startup (for simple verified stability as requested)
 # In production, use Alembic for migrations
 Base.metadata.create_all(bind=engine)
+
+# create_all doesn't add columns to existing tables - add password_hash if missing
+if "password_hash" not in {c["name"] for c in inspect(engine).get_columns("users")}:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR"))
+
+bootstrap_admin()
 
 app = FastAPI(
     title="Brick Bhatta Management System API",
@@ -30,7 +39,7 @@ app.include_router(users.router)
 app.include_router(sales.router)
 app.include_router(work.router)
 app.include_router(transactions.router)
-app.include_router(otp.router)
+app.include_router(auth.router)
 
 @app.get("/health")
 def read_health():

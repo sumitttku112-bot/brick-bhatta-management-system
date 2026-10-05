@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, DateTime, Enum, Index
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, DateTime, Enum
 from sqlalchemy.orm import relationship
 import enum
 from .database import Base
@@ -12,7 +12,7 @@ class UserRole(str, enum.Enum):
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(String, primary_key=True, index=True) # Firebase UID or custom ID
+    id = Column(String, primary_key=True, index=True)
     name = Column(String, nullable=False)
     name_hindi = Column(String, nullable=False)
     role = Column(String, nullable=False) # Store enum as string for flexibility
@@ -22,32 +22,18 @@ class User(Base):
     
     # Optional extended details
     contact_person = Column(String, nullable=True)
-    phone_number = Column(String, nullable=True, index=True) # Indexed for OTP lookup
+    phone_number = Column(String, nullable=True, index=True) # Indexed for login lookup
     address = Column(String, nullable=True)
     party_type = Column(String, nullable=True)
     gst_number = Column(String, nullable=True)
     opening_balance = Column(Float, nullable=True)
     opening_balance_type = Column(String, nullable=True) # 'Dr' or 'Cr'
     credit_limit = Column(Float, nullable=True)
+    password_hash = Column(String, nullable=True)
 
     sales = relationship("Sale", back_populates="creator")
     work_entries = relationship("Work", back_populates="creator")
     transactions = relationship("Transaction", foreign_keys="Transaction.party_id", back_populates="party")
-
-# OTP Storage Model
-class OTP(Base):
-    __tablename__ = "otps"
-    
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    phone_number = Column(String, nullable=False, index=True)
-    otp_code = Column(String, nullable=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    expires_at = Column(DateTime, nullable=False)
-    verified = Column(Boolean, default=False)
-    attempts = Column(Integer, default=0) # Track verification attempts
-    
-    # Index for faster lookups
-    __table_args__ = (Index('idx_phone_otp', 'phone_number', 'otp_code'),)
 
 class Sale(Base):
     __tablename__ = "sales"
