@@ -1,7 +1,7 @@
 import logging
 import os
 
-from . import models, security
+from . import crud, models, security
 from .database import SessionLocal
 
 logger = logging.getLogger(__name__)
@@ -24,9 +24,7 @@ def bootstrap_admin():
     phone = "+" + phone.lstrip("+")
     db = SessionLocal()
     try:
-        user = db.query(models.User).filter(
-            models.User.phone_number.in_({phone, phone.lstrip("+")})
-        ).first()
+        user = crud.get_user_for_login(db, phone)
         if user:
             user.password_hash = security.hash_password(password)
             user.is_active = True

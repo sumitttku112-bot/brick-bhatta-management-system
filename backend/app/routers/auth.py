@@ -15,7 +15,7 @@ def login(request: schemas.LoginRequest, db: Session = Depends(dependencies.get_
         detail="Invalid phone number or password",
     )
 
-    user = crud.get_user_by_phone(db, request.phone_number)
+    user = crud.get_user_for_login(db, request.phone_number)
     # Same error for unknown user / no password / wrong password to avoid leaking which phones exist.
     if user is None or not user.password_hash:
         raise invalid

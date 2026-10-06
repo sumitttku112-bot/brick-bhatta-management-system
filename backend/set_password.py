@@ -22,8 +22,8 @@ def main():
 
     db = SessionLocal()
     try:
-        user = crud.get_user_by_phone(db, phone)
-        if user is None or db.get(type(user), user.id) is None:
+        user = crud.get_user_for_login(db, phone)
+        if user is None:
             print(f"No user in the users table with phone {phone}")
             sys.exit(1)
         user.password_hash = security.hash_password(password)

@@ -299,6 +299,21 @@ def get_user_by_phone(db: Session, phone_number: str):
 
 
 
+def get_user_for_login(db: Session, phone_number: str):
+    """
+    Find a row in the users table by phone, ignoring country code and formatting:
+    '9876543210', '+919876543210' and '+91 98765 43210' all match the same user.
+    """
+    digits = "".join(ch for ch in phone_number if ch.isdigit())
+    if len(digits) < 10:
+        return None
+    last10 = digits[-10:]
+    for user in db.query(models.User).filter(models.User.phone_number.like(f"%{last10[-4:]}")):
+        stored = "".join(ch for ch in (user.phone_number or "") if ch.isdigit())
+        if stored[-10:] == last10:
+            return user
+    return None
+
 def get_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.User).offset(skip).limit(limit).all()
 
